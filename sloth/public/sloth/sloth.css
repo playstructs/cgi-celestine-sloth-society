@@ -1,0 +1,179 @@
+/*
+ * Celestine Sloth Society's motto under its badge in sign-up (ConnectingToCorp2,
+ * Orientation2). Webapp sets SN Corp's motto across the bottom of the 192px
+ * logo slot, left-aligned; the sloth is centred, so is the motto.
+ */
+.snc-logo-wrapper .sui-text-header {
+  left: 0;
+  right: 0;
+  top: auto;
+  bottom: 0;
+  margin: 0 auto;
+  text-align: center;
+}
+
+/*
+ * A player's own picture (sloth/runtime/pfp.js), over the generated layers.
+ * Webapp's layers are always 72px, centred and raised 4px, since the robot art
+ * is drawn to be cropped by each portrait (40px in the HUD, 44px in result
+ * rows, 72px in the profile and sign-up). A player's picture instead fills
+ * whatever portrait holds it, whole. The extra `html` outranks webapp's
+ * `.sui-screen-portrait-image .pfp-viewer-layer` and
+ * `.sui-result-row-portrait img.pfp-viewer-layer` rules.
+ */
+html img.pfp-viewer-layer.sloth-pfp-url {
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  transform: none;
+  object-fit: cover;
+}
+
+/*
+ * Sign-up: the Celestine Sloths gallery (sloth/runtime/sloths.js). Its controls are SUI's
+ * own (screen buttons, text input, close link); this lays the gallery over the
+ * profile screen as one edge-to-edge scroll of sloths, and outlines the one
+ * found by number, and the one chosen, in the player's highlight colour.
+ */
+.set-username-screen-body {
+  position: relative;
+}
+
+.sloth-picker {
+  position: absolute;
+  inset: 0;
+  box-sizing: border-box;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+  padding: var(--spacing-lg) var(--spacing-xl);
+  background: var(--page-background);
+}
+
+.sloth-picker.hidden {
+  display: none;
+}
+
+.sloth-picker-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.sloth-picker .common-inline-text-input-controls-container {
+  justify-content: flex-start;
+  gap: var(--spacing-md);
+}
+
+.sloth-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.sloth-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
+  gap: 0;
+  /* Room for a found sloth, lifted at the edge of the gallery. */
+  padding: 10px;
+}
+
+.sloth-tile {
+  position: relative;
+  display: block;
+  aspect-ratio: 1;
+  padding: 0;
+  border: none;
+  background: var(--surface-default);
+  cursor: pointer;
+}
+
+.sloth-tile img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* The outline sits inside the tile, so it never overlaps a neighbour. */
+.sloth-tile::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.sloth-tile:hover::after,
+.sloth-tile:focus-visible::after {
+  box-shadow: inset 0 0 0 2px var(--text-player-highlight);
+}
+
+.sloth-tile.sui-mod-active::after {
+  box-shadow: inset 0 0 0 3px var(--text-player-highlight);
+}
+
+/*
+ * Found by number: lifted over its neighbours, with a solid border in the
+ * player's highlight colour and a glow that pulses as it comes into view.
+ */
+.sloth-tile.sloth-mod-found {
+  z-index: 2;
+  transform: scale(1.15);
+  box-shadow: 0 0 0 3px var(--text-player-highlight), 0 6px 16px 2px rgba(0, 0, 0, 0.7);
+  transition: transform 0.2s ease-out;
+}
+
+.sloth-tile.sloth-mod-found::after {
+  box-shadow: inset 0 0 0 2px var(--page-background);
+  animation: sloth-found 1s ease-in-out 3;
+}
+
+@keyframes sloth-found {
+  0%, 100% { box-shadow: inset 0 0 0 2px var(--page-background), 0 0 0 3px var(--text-player-highlight); }
+  50% { box-shadow: inset 0 0 0 2px var(--page-background), 0 0 0 3px var(--text-player-highlight), 0 0 18px 6px var(--accent-primary); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sloth-tile.sloth-mod-found {
+    transition: none;
+  }
+
+  .sloth-tile.sloth-mod-found::after {
+    animation: none;
+  }
+}
+
+/*
+ * The player's own profile: the edit button on the portrait's corner opens the
+ * gallery over the profile (sloth/runtime/sloths.js), and a line under the player's
+ * name says how the change went.
+ */
+.sloth-picker-host,
+.profile-header-image-container {
+  position: relative;
+}
+
+.sloth-profile-pfp-edit {
+  position: absolute;
+  right: -4px;
+  bottom: -4px;
+  z-index: 1;
+  display: flex;
+  padding: 2px;
+  background: var(--page-background);
+  text-decoration: none;
+}
+
+.sloth-profile-pfp-edit.sui-mod-disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.sloth-profile-pfp-status {
+  margin-top: var(--spacing-sm);
+}

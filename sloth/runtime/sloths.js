@@ -1,0 +1,296 @@
+// Choosing a Celestine Sloth as the profile picture at sign-up.
+//
+// "Choose Sloth", beside the generated picture, opens a gallery of every sloth
+// in the Celestine Sloth Society (#1 to #2500), as this site hosts them
+// (sloth/public/sloth/sloths), in one endless scroll: more are added as the
+// player nears the end, and images load only as they come into view. A player
+// who knows their sloth's number finds it: the gallery scrolls to it and
+// outlines it. Clicking a sloth chooses it, and its picture,
+// https://sloths.structs.zone/sloth/sloths/<id>.webp, becomes the player's
+// picture (pfp.js). No wallet is asked for: the picture is the player's choice.
+//
+// Its controls are webapp's own SUI components: screen buttons, the text input
+// with its warning and the close link.
+import {FIRST_SLOTH, LAST_SLOTH, slothId, slothPath, slothUrl, attributes} from './pfp.js';
+import {bindSubmitButtonToInput} from '../../structs-webapp/src/js/util/SubmitButtonToggle.js';
+import {PfpViewerComponent} from '../../structs-webapp/src/js/view_models/components/PfpViewerComponent.js';
+
+const BATCH = 120;
+const ID_PATTERN = /^\d{1,4}$/;
+
+/** @return {number|null} the sloth with this number, if there is one */
+function parseId(text) {
+  const value = String(text).trim().replace(/^#/, '');
+  if (!ID_PATTERN.test(value)) return null;
+  const id = Number(value);
+  return id >= FIRST_SLOTH && id <= LAST_SLOTH ? id : null;
+}
+
+/** @return {number|null} the sloth the render attributes picture, if any */
+const chosenId = pfp => slothId(pfp?.url);
+
+/**
+ * Adds "Choose Sloth" to the sign-up profile screen (SetUsernameViewModel,
+ * patched to call this once its picture is shown).
+ *
+ * @param {object} viewModel SetUsernameViewModel
+ * @param {object} menuPage webapp's MenuPage
+ */
+function mount(viewModel, menuPage) {
+  const refresh = document.getElementById(viewModel.regeneratePfpBtnId);
+  const body = document.querySelector('.set-username-screen-body');
+  if (!refresh || !body) return;
+
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.id = 'sloth-btn';
+  button.className = 'sui-screen-btn sui-mod-secondary';
+  button.textContent = 'Choose Sloth';
+  refresh.after(button);
+
+  const picker = createPicker(body, {
+    current: () => chosenId(viewModel.pfpViewerComponent?.pfp),
+    say: text => menuPage.setDialogueScreenContent(text, true),
+    choose: id => {
+      const component = viewModel.pfpViewerComponent;
+      // The generated layers stay, under the sloth, for clients that don't show URLs.
+      component.pfp = {...(component.pfp ?? {}), url: slothUrl(id)};
+      component.render();
+      viewModel.gameState.signupRequest.pfp_client_render_attributes = component.getPfpJson();
+      menuPage.setDialogueScreenContent(`Sloth #${id} it is. Now, your display name.`, true);
+    },
+  });
+  button.addEventListener('click', picker.open);
+}
+
+/**
+ * The gallery, hidden over `host` until opened: at sign-up (mount) and on the
+ * player's own profile (mountProfile).
+ *
+ * @param {HTMLElement} host positioned element the gallery covers
+ * @param {object} options
+ * @param {function(): (number|null)} options.current the sloth chosen now, if any
+ * @param {function(string): void} options.say shows the gallery's messages
+ * @param {function(number): void} options.choose called with the chosen number
+ * @param {HTMLElement} [options.viewport] the scrolling element `host` is in,
+ *   when `host` may be taller than it: the gallery then ends where it does
+ * @return {{open: function(): void, close: function(): void}}
+ */
+function createPicker(host, {current, say, choose, viewport = null}) {
+  host.querySelector('.sloth-picker')?.remove();
+  const panel = document.createElement('div');
+  panel.id = 'sloth-picker';
+  panel.className = 'sloth-picker hidden';
+  panel.innerHTML = `
+    <div class="sloth-picker-header">
+      <span class="sui-text-header">Celestine Sloths</span>
+      <a id="sloth-close" class="sui-screen-nav-close" href="javascript: void(0)" aria-label="Close">
+        <i class="sui-icon-sm icon-close"></i>
+      </a>
+    </div>
+    <div class="common-inline-text-input-group-container">
+      <div class="common-inline-text-input-controls-container">
+        <label class="sui-input-text" for="sloth-id">
+          <span>Find by Number</span>
+          <input type="text" inputmode="numeric" autocomplete="off" name="sloth-id" id="sloth-id" placeholder="${FIRST_SLOTH} to ${LAST_SLOTH}">
+        </label>
+        <button id="sloth-id-btn" class="sui-screen-btn sui-mod-disabled" type="button" disabled>Find</button>
+      </div>
+      <div class="common-inline-text-input-error-container">
+        <div id="sloth-id-error" class="sui-input-text-warning">Enter a number from ${FIRST_SLOTH} to ${LAST_SLOTH}.</div>
+      </div>
+    </div>
+    <div id="sloth-scroll" class="sloth-scroll">
+      <div id="sloth-grid" class="sloth-grid"></div>
+    </div>`;
+  host.append(panel);
+
+  const scroller = panel.querySelector('#sloth-scroll');
+  const grid = panel.querySelector('#sloth-grid');
+  const idInput = panel.querySelector('#sloth-id');
+  const idButton = panel.querySelector('#sloth-id-btn');
+  const idError = panel.querySelector('#sloth-id-error');
+
+  let next = FIRST_SLOTH; // the first sloth not yet in the grid
+  const tile = id => grid.querySelector(`[data-sloth="${id}"]`);
+
+  /** Adds sloths to the grid, the next batch or up to (and past) `id`. */
+  const renderMore = (id = null) => {
+    if (next > LAST_SLOTH || (id !== null && id < next)) return;
+    const last = Math.min(LAST_SLOTH, (id ?? next) + BATCH - 1);
+    const chosen = current();
+    const html = [];
+    for (let n = next; n <= last; n++) {
+      html.push(`<button type="button" class="sloth-tile${n === chosen ? ' sui-mod-active' : ''}" data-sloth="${n}" title="Sloth #${n}" aria-label="Sloth #${n}"><img src="${slothPath(n)}" alt="" loading="lazy"></button>`);
+    }
+    grid.insertAdjacentHTML('beforeend', html.join(''));
+    next = last + 1;
+  };
+
+  // The endless scroll: nearing the end of the grid adds the next batch, until
+  // the grid reaches past the bottom of the view.
+  const fill = () => {
+    while (next <= LAST_SLOTH && scroller.clientHeight > 0 && scroller.scrollTop + scroller.clientHeight > scroller.scrollHeight - 600) {
+      renderMore();
+    }
+  };
+  scroller.addEventListener('scroll', fill, {passive: true});
+
+  grid.addEventListener('click', event => {
+    const target = event.target.closest('.sloth-tile');
+    if (target) pick(Number(target.dataset.sloth));
+  });
+
+  /** Brings a sloth into view, outlined. */
+  const reveal = (id, {mark = true, smooth = true} = {}) => {
+    renderMore(id);
+    const target = tile(id);
+    if (!target) return;
+    if (mark) {
+      grid.querySelectorAll('.sloth-mod-found').forEach(found => found.classList.remove('sloth-mod-found'));
+      // Restarted, so finding the same sloth again plays the highlight again.
+      void target.offsetWidth;
+      target.classList.add('sloth-mod-found');
+    }
+    // A far jump (2,500 sloths is a long gallery) is instant: scrolled
+    // smoothly, it would pass thousands of pictures that never load in time.
+    const near = Math.abs(target.offsetTop - scroller.scrollTop) < scroller.clientHeight * 3;
+    target.scrollIntoView({block: 'center', behavior: smooth && near ? 'smooth' : 'auto'});
+  };
+
+  // Within a taller page (the profile), the gallery covers what is in view.
+  const fit = () => {
+    if (!viewport) return;
+    viewport.scrollTop = 0;
+    panel.style.bottom = 'auto';
+    panel.style.height = `${Math.max(0, viewport.getBoundingClientRect().bottom - host.getBoundingClientRect().top)}px`;
+  };
+
+  const open = () => {
+    panel.classList.remove('hidden');
+    fit();
+    const chosen = current();
+    grid.querySelectorAll('.sloth-tile.sui-mod-active').forEach(active => active.classList.remove('sui-mod-active'));
+    if (chosen !== null) {
+      renderMore(chosen);
+      tile(chosen)?.classList.add('sui-mod-active');
+      reveal(chosen, {mark: false, smooth: false});
+    }
+    fill();
+    say(`Pick your sloth. Know its number? Find it.`);
+  };
+
+  const close = () => panel.classList.add('hidden');
+
+  const pick = id => {
+    close();
+    choose(id);
+  };
+
+  const find = () => {
+    const id = parseId(idInput.value);
+    if (id === null) {
+      idError.classList.add('sui-mod-show');
+      return;
+    }
+    idError.classList.remove('sui-mod-show');
+    reveal(id);
+    fill();
+    say(`There's #${id}. Click it to make it yours.`);
+  };
+
+  bindSubmitButtonToInput(idInput, () => idButton);
+  idInput.addEventListener('input', () => idError.classList.remove('sui-mod-show'));
+  idInput.addEventListener('keyup', event => {
+    if (event.key === 'Enter') find();
+  });
+  idButton.addEventListener('click', find);
+  panel.querySelector('#sloth-close').addEventListener('click', close);
+  return {open, close};
+}
+
+/** The profile is confirmed: the picture can't change any more. */
+function lock() {
+  document.getElementById('sloth-btn')?.remove();
+  document.getElementById('sloth-picker')?.remove();
+}
+
+// The player's own profile ---------------------------------------------------
+
+const EDIT_ID = 'sloth-profile-pfp-edit-btn';
+
+/**
+ * The edit button on the player's own portrait (AccountProfileViewModel).
+ *
+ * @param {object} viewModel AccountProfileViewModel
+ * @return {string}
+ */
+function profileButtonHTML(viewModel) {
+  return viewModel.isOwnProfile
+    ? `<a id="${EDIT_ID}" class="sloth-profile-pfp-edit" href="javascript: void(0)" title="Change picture" aria-label="Change picture">
+        <i class="sui-icon icon-edit sui-text-secondary"></i>
+      </a>`
+    : '';
+}
+
+/**
+ * Opens the gallery from the player's own profile; the sloth they choose is
+ * set as their pfp on chain by their key at once (MsgPlayerUpdatePfp).
+ *
+ * @param {object} viewModel AccountProfileViewModel
+ * @param {object} menuPage webapp's MenuPage
+ */
+function mountProfile(viewModel, menuPage) {
+  const button = document.getElementById(EDIT_ID);
+  const host = document.getElementById(menuPage.pageTemplateContentId);
+  if (!button || !host) return;
+  host.classList.add('sloth-picker-host');
+
+  const status = document.createElement('div');
+  status.className = 'sloth-profile-pfp-status sui-text-hint hidden';
+  document.querySelector('.profile-header-info-container')?.append(status);
+  const say = text => {
+    status.textContent = text;
+    status.classList.toggle('hidden', !text);
+  };
+
+  const picker = createPicker(host, {
+    viewport: document.getElementById(menuPage.screenBodyId),
+    current: () => chosenId({url: viewModel.player?.pfp}),
+    say: () => {},
+    choose: async id => {
+      const {gameState, signingClientManager} = globalThis;
+      const player = gameState?.keyPlayers?.player?.player;
+      if (!player?.id || player.id !== viewModel.playerId || !signingClientManager) {
+        say('Your picture can only be changed while you are signed in.');
+        return;
+      }
+      const url = slothUrl(id);
+      button.classList.add('sui-mod-disabled');
+      say(`Setting Sloth #${id} as your picture…`);
+      try {
+        const tx = await signingClientManager.queueMsgPlayerUpdatePfp(player.id, url);
+        if (tx?.status !== 'succeeded') throw new Error(tx?.error ?? tx?.status ?? 'not sent');
+        player.pfp = url;
+        player.pfp_client_render_attributes = attributes(url, player.pfp_client_render_attributes);
+        // The HUD's portrait, and anything else showing the player's own.
+        const event = new CustomEvent('RENDER_PLAYER_PFP');
+        event.playerType = 'player';
+        window.dispatchEvent(event);
+        const portrait = document.querySelector('.profile-header-image');
+        if (portrait) portrait.innerHTML = new PfpViewerComponent(player.pfp_client_render_attributes).renderHTML();
+        say(`Sloth #${id} is your picture.`);
+      } catch (error) {
+        console.warn(`[sloth] pfp of ${player.id} not set: ${error?.message ?? error}`);
+        say(`Your picture was not changed: ${error?.message ?? error}`);
+      } finally {
+        button.classList.remove('sui-mod-disabled');
+      }
+    },
+  });
+  button.addEventListener('click', () => {
+    if (!button.classList.contains('sui-mod-disabled')) picker.open();
+  });
+}
+
+export const sloths = Object.freeze({mount, lock, profileButtonHTML, mountProfile});

@@ -1,0 +1,40 @@
+{
+  "guild": {
+    "schema_version": 1,
+    "id": "0-13",
+    "name": "Celestine Sloth Society",
+    "description": "The laziest space conquest",
+    "tag": "LAZY",
+    "logo": "https://sloths.structs.zone/sloth/img/celestine-sloth-society-logo.jpg",
+    "webapp": "sloths.structs.zone",
+    "website": "https://www.celestineslothsociety.com/",
+    "recruiting": {
+      "status": "open"
+    },
+    "socials": {
+      "bluesky": "",
+      "facebook": "",
+      "farcaster": "",
+      "instagram": "",
+      "twitch": "",
+      "x": "https://x.com/CelestineSloths",
+      "youtube": "",
+      "discord_contact": "",
+      "discord_server": "https://discord.com/invite/celestineslothssociety",
+      "telegram_contact": "",
+      "telegram_channel": ""
+    },
+    "denom": {
+      "6": "lates",
+      "0": "ulates"
+    },
+    "services": {
+      "guild_api": "https://beta.playstructs.com/api/",
+      "reactor_api": "https://public.testnet.structs.network/",
+      "client_websocket": "wss://public.testnet.structs.network:26657/websocket",
+      "grass_nats_websocket": "wss://beta.playstructs.com:1443",
+      "matrix": "https://matrix.beta.playstructs.com",
+      "explorer": ""
+    }
+  }
+}
