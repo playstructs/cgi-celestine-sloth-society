@@ -138,6 +138,12 @@ function createPicker(host, {current, say, choose, viewport = null}) {
     if (target) pick(Number(target.dataset.sloth));
   });
 
+  /** Scrolls the gallery to a picture: scrollIntoView would scroll the page under it as well. */
+  const center = (target, behavior) => {
+    const top = target.offsetTop - scroller.offsetTop - (scroller.clientHeight - target.offsetHeight) / 2;
+    scroller.scrollTo({top, behavior});
+  };
+
   /** Brings a sloth into view, outlined. */
   const reveal = (id, {mark = true, smooth = true} = {}) => {
     renderMore(id);
@@ -152,16 +158,29 @@ function createPicker(host, {current, say, choose, viewport = null}) {
     // A far jump (2,500 sloths is a long gallery) is instant: scrolled
     // smoothly, it would pass thousands of pictures that never load in time.
     const near = Math.abs(target.offsetTop - scroller.scrollTop) < scroller.clientHeight * 3;
-    target.scrollIntoView({block: 'center', behavior: smooth && near ? 'smooth' : 'auto'});
+    center(target, smooth && near ? 'smooth' : 'auto');
   };
 
   // Within a taller page (the profile), the gallery covers what is in view.
   const fit = () => {
     if (!viewport) return;
     viewport.scrollTop = 0;
+    // Webapp may draw the page scaled: the height is in its own pixels.
+    const view = viewport.getBoundingClientRect();
+    const scale = view.height / viewport.offsetHeight || 1;
+    const above = (host.getBoundingClientRect().top - view.top) / scale - viewport.clientTop;
     panel.style.bottom = 'auto';
-    panel.style.height = `${Math.max(0, viewport.getBoundingClientRect().bottom - host.getBoundingClientRect().top)}px`;
+    panel.style.height = `${Math.max(0, viewport.clientHeight - above)}px`;
   };
+
+  if (viewport) {
+    // The screen turned, or the browser's bars came or went.
+    const observer = new ResizeObserver(() => {
+      if (!panel.isConnected) observer.disconnect();
+      else if (!panel.classList.contains('hidden')) fit();
+    });
+    observer.observe(viewport);
+  }
 
   const open = () => {
     panel.classList.remove('hidden');
