@@ -10,9 +10,8 @@
 // picture (pfp.js). No wallet is asked for: the picture is the player's choice.
 //
 // Its controls are webapp's own SUI components: screen buttons, the text input
-// with its warning and the close link.
+// and the close link.
 import {FIRST_SLOTH, LAST_SLOTH, slothId, slothPath, slothUrl, attributes} from './pfp.js';
-import {bindSubmitButtonToInput} from '../../structs-webapp/src/js/util/SubmitButtonToggle.js';
 import {PfpViewerComponent} from '../../structs-webapp/src/js/view_models/components/PfpViewerComponent.js';
 
 const BATCH = 120;
@@ -82,26 +81,25 @@ function createPicker(host, {current, say, choose, viewport = null}) {
   panel.id = 'sloth-picker';
   panel.className = 'sloth-picker hidden';
   panel.innerHTML = `
-    <div class="sloth-picker-header">
-      <span class="sui-text-header">Celestine Sloths</span>
-      <a id="sloth-close" class="sui-screen-nav-close" href="javascript: void(0)" aria-label="Close">
-        <i class="sui-icon-sm icon-close"></i>
-      </a>
-    </div>
-    <div class="common-inline-text-input-group-container">
-      <div class="common-inline-text-input-controls-container">
-        <label class="sui-input-text" for="sloth-id">
-          <span>Find by Number</span>
-          <input type="text" inputmode="numeric" autocomplete="off" name="sloth-id" id="sloth-id" placeholder="${FIRST_SLOTH} to ${LAST_SLOTH}">
-        </label>
-        <button id="sloth-id-btn" class="sui-screen-btn sui-mod-disabled" type="button" disabled>Find</button>
+    <div class="sloth-picker-layout">
+      <div class="sloth-picker-header">
+        <span class="sui-text-header">Celestine Sloths</span>
+        <a id="sloth-close" class="sui-screen-nav-close" href="javascript: void(0)" aria-label="Close">
+          <i class="sui-icon-sm icon-close"></i>
+        </a>
       </div>
-      <div class="common-inline-text-input-error-container">
-        <div id="sloth-id-error" class="sui-input-text-warning">Enter a number from ${FIRST_SLOTH} to ${LAST_SLOTH}.</div>
+      <div class="common-inline-text-input-group-container">
+        <div class="common-inline-text-input-controls-container">
+          <label class="sui-input-text" for="sloth-id">
+            <span>Find by Number</span>
+            <input type="text" inputmode="numeric" autocomplete="off" name="sloth-id" id="sloth-id" placeholder="${FIRST_SLOTH} to ${LAST_SLOTH}">
+          </label>
+          <button id="sloth-id-btn" class="sui-screen-btn sui-mod-disabled" type="button" disabled>Find</button>
+        </div>
       </div>
-    </div>
-    <div id="sloth-scroll" class="sloth-scroll">
-      <div id="sloth-grid" class="sloth-grid"></div>
+      <div id="sloth-scroll" class="sloth-scroll">
+        <div id="sloth-grid" class="sloth-grid"></div>
+      </div>
     </div>`;
   host.append(panel);
 
@@ -109,7 +107,6 @@ function createPicker(host, {current, say, choose, viewport = null}) {
   const grid = panel.querySelector('#sloth-grid');
   const idInput = panel.querySelector('#sloth-id');
   const idButton = panel.querySelector('#sloth-id-btn');
-  const idError = panel.querySelector('#sloth-id-error');
 
   let next = FIRST_SLOTH; // the first sloth not yet in the grid
   const tile = id => grid.querySelector(`[data-sloth="${id}"]`);
@@ -177,7 +174,7 @@ function createPicker(host, {current, say, choose, viewport = null}) {
       reveal(chosen, {mark: false, smooth: false});
     }
     fill();
-    say(`Pick your sloth. Know its number? Find it.`);
+    say('Pick your sloth, or find it by number.');
   };
 
   const close = () => panel.classList.add('hidden');
@@ -189,18 +186,19 @@ function createPicker(host, {current, say, choose, viewport = null}) {
 
   const find = () => {
     const id = parseId(idInput.value);
-    if (id === null) {
-      idError.classList.add('sui-mod-show');
-      return;
-    }
-    idError.classList.remove('sui-mod-show');
+    if (id === null) return;
     reveal(id);
     fill();
     say(`There's #${id}. Click it to make it yours.`);
   };
 
-  bindSubmitButtonToInput(idInput, () => idButton);
-  idInput.addEventListener('input', () => idError.classList.remove('sui-mod-show'));
+  // Find is on only while the number is one it can find.
+  idInput.addEventListener('input', () => {
+    const found = parseId(idInput.value) !== null;
+    idButton.disabled = !found;
+    idButton.classList.toggle('sui-mod-primary', found);
+    idButton.classList.toggle('sui-mod-disabled', !found);
+  });
   idInput.addEventListener('keyup', event => {
     if (event.key === 'Enter') find();
   });

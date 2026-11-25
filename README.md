@@ -73,7 +73,9 @@ nears the end; images load as they come into view). A player who knows their
 sloth's number finds it: the gallery jumps to it and outlines it. Clicking a
 sloth chooses it. No wallet is involved: the picture is the player's choice
 (`sloth/runtime/sloths.js`). The gallery's controls are webapp's own SUI
-components: screen buttons, the text input and its warning, and the close link.
+components: screen buttons, the text input and the close link. **Find** is on
+only for a number the collection has. On a short screen its number field and
+close link share one row.
 
 That URL can't go into the sign-up request's `pfp`: the guild API requires it
 to be JSON, which the chain then refuses as a pfp. So it goes in
